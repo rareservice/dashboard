@@ -1,0 +1,2256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RareShop Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+        /* Custom scrollbar (optional) */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        /* Style for displaying discounted price */
+        .original-price {
+            text-decoration: line-through;
+            color: #9ca3af; /* gray-400 */
+            font-size: 0.875rem; /* text-sm */
+            margin-right: 0.5rem;
+        }
+        .discount-price {
+            font-weight: 700;
+            color: #ef4444; /* red-500 */
+        }
+        /* Make details summary marker consistent */
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        details > summary::before {
+            content: '\25B6'; /* Right-pointing triangle */
+            margin-right: 0.5rem;
+            font-size: 0.8em;
+            transition: transform 0.2s ease-in-out;
+            display: inline-block;
+        }
+        details[open] > summary::before {
+            transform: rotate(90deg);
+        }
+
+        /* Styles for active nav button */
+        .nav-button {
+            border-bottom: 3px solid transparent;
+        }
+        .nav-button.active {
+            border-bottom-color: #ea580c; /* orange-600 */
+            color: #ea580c; /* orange-600 */
+        }
+        
+        /* REMOVED: All .status-badge and .status-pending-verification styles were here */
+        
+        /* Modal Backdrop */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <header class="border-b border-gray-200 bg-white sticky top-0 z-50 shadow-md">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <a href="#" id="logo-link" class="text-3xl font-bold text-orange-600 hover:text-orange-700 transition-colors">RareShop Admin</a>
+                </div>
+
+                <div id="auth-status-container" class="flex items-center space-x-4">
+                    <p id="user-id-display-header" class="text-sm text-gray-600 hidden sm:block">User ID: Loading...</p>
+                    <button id="login-link-btn" class="text-gray-600 hover:text-orange-600 font-medium text-sm hidden">Login</button>
+                    <span id="auth-separator" class="text-gray-300 hidden">|</span>
+                    <button id="logout-btn" class="text-gray-600 hover:text-red-600 font-medium text-sm hidden">Logout</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="bg-white shadow-sm sticky top-16 z-40">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex space-x-4">
+                <button id="nav-analytics" class="nav-button py-3 px-2 text-sm font-semibold text-gray-600 hover:text-orange-600 transition-colors">
+                    <i class="ph ph-chart-bar text-lg mr-1 align-middle"></i>
+                    Analytics
+                </button>
+                <button id="nav-orders" class="nav-button py-3 px-2 text-sm font-semibold text-gray-600 hover:text-orange-600 transition-colors">
+                    <i class="ph ph-receipt text-lg mr-1 align-middle"></i>
+                    Orders
+                </button>
+                <button id="nav-products" class="nav-button active py-3 px-2 text-sm font-semibold text-gray-600 hover:text-orange-600 transition-colors">
+                    <i class="ph ph-package text-lg mr-1 align-middle"></i>
+                    Product Management
+                </button>
+                <button id="nav-banners" class="nav-button py-3 px-2 text-sm font-semibold text-gray-600 hover:text-orange-600 transition-colors">
+                    <i class="ph ph-image text-lg mr-1 align-middle"></i>
+                    Homepage Banners
+                </button>
+            </div>
+        </div>
+    </nav>
+    <main id="main-content-container" class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div id="loading-spinner" class="text-center p-10 text-gray-500 text-lg">
+            <i class="ph ph-spinner-gap text-4xl animate-spin mr-2"></i> Initializing Dashboard...
+        </div>
+    </main>
+    
+    <template id="analytics-view-template">
+        <div class="space-y-8">
+            <h1 class="text-3xl font-bold text-gray-800">Analytics Dashboard</h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <div class="bg-white rounded-xl shadow-lg p-5">
+                    <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Today's Revenue</h4>
+                    <p id="stats-today-revenue" class="text-3xl font-bold text-gray-900 mt-2">
+                        <i class="ph ph-spinner-gap animate-spin"></i>
+                    </p>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-5">
+                    <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Last 7 Days</h4>
+                    <p id="stats-7day-revenue" class="text-3xl font-bold text-gray-900 mt-2">
+                        <i class="ph ph-spinner-gap animate-spin"></i>
+                    </p>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-5">
+                    <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">This Month</h4>
+                    <p id="stats-month-revenue" class="text-3xl font-bold text-gray-900 mt-2">
+                        <i class="ph ph-spinner-gap animate-spin"></i>
+                    </p>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-5 bg-orange-50 border border-orange-200">
+                    <h4 class="text-sm font-medium text-orange-600 uppercase tracking-wider">Total Revenue</h4>
+                    <p id="stats-total-revenue" class="text-3xl font-bold text-orange-700 mt-2">
+                        <i class="ph ph-spinner-gap animate-spin"></i>
+                    </p>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-5">
+                    <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Customers</h4>
+                    <p id="stats-total-customers" class="text-3xl font-bold text-gray-900 mt-2">
+                        <i class="ph ph-spinner-gap animate-spin"></i>
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Revenue Overview</h3>
+                    <div class="relative h-96">
+                        <canvas id="earnings-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">View Specific Day</h3>
+                        <div>
+                            <label for="analytics-date-picker" class="block text-sm font-medium text-gray-700 mb-1">Select Date:</label>
+                            <input type="date" id="analytics-date-picker" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+                        <div id="daily-stats-container" class="mt-4 pt-4 border-t border-gray-100">
+                            <p class="text-sm text-gray-500">Select a date to see details.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Site Traffic</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Site Visits (This Week)</h4>
+                                <p class="text-2xl font-bold text-gray-900 mt-1">N/A</p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Site Visits (This Month)</h4>
+                                <p class="text-2xl font-bold text-gray-900 mt-1">N/A</p>
+                            </div>
+                            <p class="text-xs text-gray-500 pt-2 border-t border-gray-100">
+                                Site visit tracking requires a separate setup, like Google Analytics or a custom "sessions" logger in Firebase.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <template id="order-view-template">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <h1 class="text-3xl font-bold text-gray-800 border-b pb-4 mb-6">Order Management</h1>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Contact</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-order-list" class="bg-white divide-y divide-gray-200">
+                        <tr id="admin-loading-row-orders">
+                             <td colspan="6" class="p-4 text-center text-gray-500">
+                                <i class="ph ph-spinner-gap text-xl animate-spin mr-2"></i> Loading orders...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p id="admin-no-orders" class="hidden p-4 text-center text-gray-500 mt-4">No new orders found.</p>
+        </div>
+    </template>
+    
+    <template id="admin-view-template">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <div class="flex items-center justify-between border-b pb-4 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Product Management</h1>
+                <button id="add-new-product-btn" class="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
+                    <i class="ph ph-plus-circle text-xl mr-2"></i> Add New Product
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Images</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (PKR)</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Warranty</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Featured</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Top Sales</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Popular</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-product-list" class="bg-white divide-y divide-gray-200">
+                        <tr id="admin-loading-row">
+                             <td colspan="10" class="p-4 text-center text-gray-500">
+                                <i class="ph ph-spinner-gap text-xl animate-spin mr-2"></i> Loading products...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p id="admin-no-products" class="hidden p-4 text-center text-gray-500 mt-4">No products found. Click "Add New Product" to get started.</p>
+        </div>
+    </template>
+    
+    <template id="banner-view-template">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <div class="flex items-center justify-between border-b pb-4 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Homepage Banner Management</h1>
+                <button id="add-new-banner-btn" class="flex items-center bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
+                    <i class="ph ph-plus-circle text-xl mr-2"></i> Add New Banner
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Alt Text</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Link Tag</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                            <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-banner-list" class="bg-white divide-y divide-gray-200">
+                        <tr id="admin-loading-row-banners">
+                             <td colspan="5" class="p-4 text-center text-gray-500">
+                                <i class="ph ph-spinner-gap text-xl animate-spin mr-2"></i> Loading banners...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p id="admin-no-banners" class="hidden p-4 text-center text-gray-500 mt-4">No banners found. Click "Add New Banner" to get started.</p>
+        </div>
+    </template>
+    
+    <footer class="bg-gray-800 text-gray-300 py-8 mt-auto">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2025 RareShop Admin. All rights reserved.</p>
+            <p class="text-xs text-gray-500 mt-2">Firebase integration active.</p>
+        </div>
+    </footer>
+
+    <div id="alertModal" class="fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-sm w-full">
+            <div class="p-6">
+                <h3 id="modalTitle" class="text-lg font-medium text-gray-900">Alert</h3>
+                <p id="modalMessage" class="mt-2 text-sm text-gray-600">This is an alert message.</p>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button id="modalCloseBtn" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-orange-600 text-base font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:ml-3 sm:w-auto sm:text-sm">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="authModal" class="fixed inset-0 modal-backdrop z-[60] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div class="p-8">
+                <h3 id="auth-modal-title" class="text-2xl font-bold text-gray-900 mb-6 border-b pb-3">Admin Login</h3>
+                
+                <div class="flex space-x-2 mb-6">
+                    <button id="login-tab" class="flex-1 py-2 text-lg font-semibold border-b-2 border-orange-600 text-orange-600 transition-colors">Login</button>
+                    <button id="signup-tab" class="flex-1 py-2 text-lg font-semibold border-b-2 border-gray-200 text-gray-500 hover:text-orange-500 transition-colors">Sign Up</button>
+                </div>
+
+                <form id="auth-form" class="space-y-4">
+                    <div>
+                        <label for="auth-email" class="sr-only">Email</label>
+                        <input type="email" id="auth-email" placeholder="Email Address" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label for="auth-password" class="sr-only">Password</label>
+                        <input type="password" id="auth-password" placeholder="Password (min 6 characters)" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    
+                    <button type="submit" id="auth-submit-btn" class="w-full py-3 bg-orange-600 text-white text-lg font-semibold rounded-lg hover:bg-orange-700 transition-colors shadow-md">
+                        Login
+                    </button>
+                </form>
+                <p id="auth-error-message" class="text-red-500 text-sm mt-4 text-center hidden">Authentication failed.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="orderDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 md:p-8">
+                <h3 class="text-2xl font-bold text-gray-900 mb-6 border-b pb-3">Order Details</h3>
+                <div id="order-detail-content" class="space-y-4">
+                    </div>
+
+                <div class="flex justify-end items-center mt-6 pt-6 border-t border-gray-100">
+                    <button type="button" id="order-modal-close" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <form id="product-form" class="p-6 md:p-8">
+                <h3 id="productModalTitle" class="text-2xl font-bold text-gray-900 mb-6 border-b pb-3">Add New Product</h3>
+                <input type="hidden" id="product-id-field" name="id">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div class="sm:col-span-2">
+                        <label for="product-name" class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                        <input type="text" id="product-name" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+
+                    <div>
+                        <label for="product-price" class="block text-sm font-medium text-gray-700 mb-1">Original Price (PKR)</label>
+                        <input type="number" id="product-price" name="price" required step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    
+                    <div>
+                        <label for="product-discount-price" class="block text-sm font-medium text-gray-700 mb-1">Discount Price (PKR, Optional)</label>
+                        <input type="number" id="product-discount-price" name="discountPrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label for="product-stock" class="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
+                        <input type="number" id="product-stock" name="stock" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+
+                    <div>
+                        <label for="product-category" class="block text-sm font-medium text-gray-700 mb-1">Category (e.g., Laptops, Phones)</label>
+                        <input type="text" id="product-category" name="category" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                </div>
+
+                <details class="bg-gray-50 rounded-lg border border-gray-200 mb-4">
+                    <summary class="p-3 font-medium text-gray-800 cursor-pointer hover:bg-gray-100 rounded-t-lg">
+                        Flash Sale Timer (Optional)
+                    </summary>
+                    <div class="p-4 border-t border-gray-200 space-y-3">
+                        <div>
+                            <label for="product-sale-duration" class="block text-sm font-medium text-gray-700 mb-1">Sale Duration (in Hours)</label>
+                            <input type="number" id="product-sale-duration" name="saleDuration" step="1" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 48">
+                            <p class="text-xs text-gray-500 mt-1">
+                                Set duration in hours to run a timed sale (requires a Discount Price).
+                                The sale starts *now*. Leave blank or 0 for no timed sale.
+                            </p>
+                        </div>
+                        <div id="sale-status-display" class="text-sm font-medium p-3 bg-blue-50 rounded-lg border border-blue-200 hidden">
+                            </div>
+                    </div>
+                </details>
+                <div class="mb-4 p-4 border border-gray-200 rounded-lg">
+                    <p class="text-sm font-medium text-gray-700 mb-2">Display Tags:</p>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center text-gray-700">
+                            <input type="checkbox" id="tag-featured" name="tags" value="featured" class="h-4 w-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                            <span class="ml-2">Featured Products</span>
+                        </label>
+                        <label class="flex items-center text-gray-700">
+                            <input type="checkbox" id="tag-top-sales" name="tags" value="top-sales" class="h-4 w-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                            <span class="ml-2">Top Sales</span>
+                        </label>
+                        <label class="flex items-center text-gray-700">
+                            <input type="checkbox" id="tag-most-popular" name="tags" value="most-popular" class="h-4 w-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500">
+                            <span class="ml-2">Most Popular</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="product-image" class="block text-sm font-medium text-gray-700 mb-1">Primary Image URL (Required on Add, Optional on Edit)</label>
+                    <input type="url" id="product-image" name="image" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., https://placehold.co/400x300">
+                </div>
+
+                <div class="mb-4">
+                    <label for="product-image-secondary" class="block text-sm font-medium text-gray-700 mb-1">Secondary Image URL (Required on Add, Optional on Edit)</label>
+                    <input type="url" id="product-image-secondary" name="image2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., https://placehold.co/400x300">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="product-image-third" class="block text-sm font-medium text-gray-700 mb-1">Third Image URL (Optional)</label>
+                    <input type="url" id="product-image-third" name="image3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., https://placehold.co/400x300">
+                </div>
+                <div class="mb-4">
+                    <label for="product-image-fourth" class="block text-sm font-medium text-gray-700 mb-1">Fourth Image URL (Optional)</label>
+                    <input type="url" id="product-image-fourth" name="image4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., https://placehold.co/400x300">
+                </div>
+                <div class="mb-4">
+                    <label for="product-image-fifth" class="block text-sm font-medium text-gray-700 mb-1">Fifth Image URL (Optional)</label>
+                    <input type="url" id="product-image-fifth" name="image5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., https://placehold.co/400x300">
+                </div>
+                <div class="mb-6 space-y-3">
+                    <details class="bg-gray-50 rounded-lg border border-gray-200">
+                        <summary class="p-3 font-medium text-gray-800 cursor-pointer hover:bg-gray-100 rounded-t-lg">
+                            General & Basic Info
+                        </summary>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-t border-gray-200">
+                            <div>
+                                <label for="spec-brand" class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                                <input type="text" id="spec-brand" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label for="spec-warranty" class="block text-sm font-medium text-gray-700 mb-1">Warranty</label>
+                                <input type="text" id="spec-warranty" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 1 Year">
+                            </div>
+                            <div>
+                                <label for="spec-os" class="block text-sm font-medium text-gray-700 mb-1">Operating System</label>
+                                <input type="text" id="spec-os" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., Windows 11">
+                            </div>
+                            <div>
+                                <label for="spec-weight" class="block text-sm font-medium text-gray-700 mb-1">Weight</label>
+                                <input type="text" id="spec-weight" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 1.8 kg">
+                            </div>
+                             <div>
+                                <label for="spec-condition" class="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                                <select id="spec-condition" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="New">New</option>
+                                    <option value="Used">Used</option>
+                                    <option value="Refurbished">Refurbished</option>
+                                </select>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="bg-gray-50 rounded-lg border border-gray-200">
+                        <summary class="p-3 font-medium text-gray-800 cursor-pointer hover:bg-gray-100 rounded-t-lg">
+                            Processor Details
+                        </summary>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-t border-gray-200">
+                            <div>
+                                <label for="spec-generation" class="block text-sm font-medium text-gray-700 mb-1">Generation</label>
+                                <input type="text" id="spec-generation" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label for="spec-processor-type" class="block text-sm font-medium text-gray-700 mb-1">Processor Type</label>
+                                <input type="text" id="spec-processor-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., Core i7">
+                            </div>
+                            <div>
+                                <label for="spec-processor-speed" class="block text-sm font-medium text-gray-700 mb-1">Processor Speed</label>
+                                <input type="text" id="spec-processor-speed" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 3.4 GHz">
+                            </div>
+                        </div>
+                    </details>
+                    
+                    <details class="bg-gray-50 rounded-lg border border-gray-200">
+                        <summary class="p-3 font-medium text-gray-800 cursor-pointer hover:bg-gray-100 rounded-t-lg">
+                            Memory & Storage
+                        </summary>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-t border-gray-200">
+                            <div>
+                                <label for="spec-ram-installed" class="block text-sm font-medium text-gray-700 mb-1">Installed RAM</label>
+                                <input type="text" id="spec-ram-installed" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 16 GB">
+                            </div>
+                            <div>
+                                <label for="spec-ram-type" class="block text-sm font-medium text-gray-700 mb-1">Type of memory</label>
+                                <input type="text" id="spec-ram-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., DDR4">
+                            </div>
+                            <div>
+                                <label for="spec-hdd" class="block text-sm font-medium text-gray-700 mb-1">Hard drive size</label>
+                                <input type="text" id="spec-hdd" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 1 TB (or N/A)">
+                            </div>
+                            <div>
+                                <label for="spec-hdd-speed" class="block text-sm font-medium text-gray-700 mb-1">Hard drive speed</label>
+                                <input type="text" id="spec-hdd-speed" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 7200 RPM">
+                            </div>
+                             <div>
+                                <label for="spec-ssd" class="block text-sm font-medium text-gray-700 mb-1">SSD</label>
+                                <input type="text" id="spec-ssd" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 512 GB (or N/A)">
+                            </div>
+                            <div>
+                                <label for="spec-drive-type" class="block text-sm font-medium text-gray-700 mb-1">Type of harddrive</label>
+                                <input type="text" id="spec-drive-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., NVMe SSD">
+                            </div>
+                            <div>
+                                <label for="spec-optical-drive" class="block text-sm font-medium text-gray-700 mb-1">Optical Drive</label>
+                                <select id="spec-optical-drive" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-optical-type" class="block text-sm font-medium text-gray-700 mb-1">Type of optical drive</label>
+                                <input type="text" id="spec-optical-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                        </div>
+                    </details>
+                    
+                    <details class="bg-gray-50 rounded-lg border border-gray-200">
+                        <summary class="p-3 font-medium text-gray-800 cursor-pointer hover:bg-gray-100 rounded-t-lg">
+                            Graphics & Display
+                        </summary>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-t border-gray-200">
+                            <div>
+                                <label for="spec-graphics-series" class="block text-sm font-medium text-gray-700 mb-1">Graphic Series</label>
+                                <input type="text" id="spec-graphics-series" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label for="spec-graphics-dedicated" class="block text-sm font-medium text-gray-700 mb-1">Dedicated graphics</label>
+                                <select id="spec-graphics-dedicated" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-graphics-memory" class="block text-sm font-medium text-gray-700 mb-1">Graphics memory</label>
+                                <input type="text" id="spec-graphics-memory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label for="spec-graphics-memory-type" class="block text-sm font-medium text-gray-700 mb-1">Type of graphics memory</label>
+                                <input type="text" id="spec-graphics-memory-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label for="spec-graphics-switchable" class="block text-sm font-medium text-gray-700 mb-1">Switchable graphics</label>
+                                <select id="spec-graphics-switchable" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-graphics-processor" class="block text-sm font-medium text-gray-700 mb-1">Graphics processor</label>
+                                <input type="text" id="spec-graphics-processor" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label for="spec-display-backlight" class="block text-sm font-medium text-gray-700 mb-1">Backlight</label>
+                                <select id="spec-display-backlight" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-display-size" class="block text-sm font-medium text-gray-700 mb-1">Screen size</label>
+                                <input type="text" id="spec-display-size" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 15.6 inch">
+                            </div>
+                            <div>
+                                <label for="spec-display-surface" class="block text-sm font-medium text-gray-700 mb-1">Screen surface</label>
+                                <input type="text" id="spec-display-surface" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., Anti-Glare">
+                            </div>
+                            <div>
+                                <label for="spec-display-resolution" class="block text-sm font-medium text-gray-700 mb-1">Screen resolution</label>
+                                <input type="text" id="spec-display-resolution" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 1920x1080">
+                            </div>
+                            <div>
+                                <label for="spec-display-touch" class="block text-sm font-medium text-gray-700 mb-1">Touchscreen</label>
+                                <select id="spec-display-touch" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                        </div>
+                    </details>
+                    
+                    <details class="bg-gray-50 rounded-lg border border-gray-200">
+                        <summary class="p-3 font-medium text-gray-800 cursor-pointer hover:bg-gray-100 rounded-t-lg">
+                            Features & Connectivity
+                        </summary>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-t border-gray-200">
+                            <div>
+                                <label for="spec-color" class="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                                <input type="text" id="spec-color" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                            </div>
+                            <div>
+                                <label for="spec-ram-form" class="block text-sm font-medium text-gray-700 mb-1">RAM</label>
+                                <input type="text" id="spec-ram-form" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 2x 8GB">
+                            </div>
+                            <div>
+                                <label for="spec-fingerprint" class="block text-sm font-medium text-gray-700 mb-1">Fingerprint Reader</label>
+                                <select id="spec-fingerprint" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-num-keyboard" class="block text-sm font-medium text-gray-700 mb-1">Numeric keyboard</label>
+                                <select id="spec-num-keyboard" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-backlit-keyboard" class="block text-sm font-medium text-gray-700 mb-1">Backlit keyboard</label>
+                                <select id="spec-backlit-keyboard" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-bluetooth" class="block text-sm font-medium text-gray-700 mb-1">Bluetooth</label>
+                                <input type="text" id="spec-bluetooth" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., 5.2">
+                            </div>
+                            <div>
+                                <label for="spec-lan" class="block text-sm font-medium text-gray-700 mb-1">LAN</label>
+                                <select id="spec-lan" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="spec-wifi" class="block text-sm font-medium text-gray-700 mb-1">Wireless/Wifi</label>
+                                <select id="spec-wifi" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Select...</option>
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                    <button type="button" id="product-modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="product-modal-save" class="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors shadow-md">
+                        Save Product
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="bannerModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+            <form id="banner-form" class="p-6 md:p-8">
+                <h3 id="bannerModalTitle" class="text-2xl font-bold text-gray-900 mb-6 border-b pb-3">Add New Banner</h3>
+                <input type="hidden" id="banner-id-field">
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="banner-image-url" class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                        <input type="url" id="banner-image-url" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="https://placehold.co/1200x400">
+                    </div>
+                    
+                    <div>
+                        <label for="banner-alt-text" class="block text-sm font-medium text-gray-700 mb-1">Alt Text (for accessibility)</label>
+                        <input type="text" id="banner-alt-text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., Featured Products Banner">
+                    </div>
+                    
+                    <div>
+                        <label for="banner-link-tag" class="block text-sm font-medium text-gray-700 mb-1">Link Tag (Optional)</label>
+                        <input type="text" id="banner-link-tag" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500" placeholder="e.g., featured">
+                        <p class="text-xs text-gray-500 mt-1">If user clicks banner, they go to this product tag list (e.g., 'featured', 'top-sales').</p>
+                    </div>
+
+                    <div>
+                        <label for="banner-order" class="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                        <input type="number" id="banner-order" value="0" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                        <p class="text-xs text-gray-500 mt-1">Banners will be sorted by this number (e.g., 0, 1, 2).</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
+                    <button type="button" id="banner-modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="banner-modal-save" class="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors shadow-md">
+                        Save Banner
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Import Firebase modules
+        //
+        // *** FIX: Corrected the import URLs from 'https_//' to 'https://' ***
+        //
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        // Import Firestore modules
+        import { 
+            getFirestore, 
+            collection, 
+            onSnapshot, 
+            doc, 
+            setLogLevel, 
+            setDoc, 
+            deleteDoc, 
+            query, 
+            where, 
+            updateDoc,
+            getDoc
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
+
+        // --- GLOBAL CONFIGS ---
+        // REMOVED: Client-side ADMIN_EMAILS array for improved security.
+        // const ADMIN_EMAILS = [...]
+
+        // --- Use Environment Variables for Config ---
+        const firebaseConfigFromEnv = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const appIdFromEnv = typeof __app_id !== 'undefined' ? __app_id : null;
+        const authTokenFromEnv = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Fallback Config ---
+        const fallbackConfig = {
+            apiKey: "AIzaSyA6YCRk-7wPFZfCz7YKtIX2v1I-QXqw75c",
+            authDomain: "rareshop-53694.firebaseapp.com",
+            projectId: "rareshop-53694",
+            storageBucket: "rareshop-53694.appspot.com", // Corrected this line
+            messagingSenderId: "431233428581",
+            appId: "1:431233428581:web:a8fdf075545e62b28f2a8c",
+            measurementId: "G-HKH7EYZMC5"
+        };
+        
+        // --- Final Config and App ID ---
+        const firebaseConfig = firebaseConfigFromEnv || fallbackConfig;
+        const appId = appIdFromEnv || firebaseConfig.appId;
+
+        // --- Global State and DOM Elements ---
+        let app, auth, db, storage;
+        let activeListeners = []; 
+        let allProducts = []; 
+        let allBanners = []; 
+        let allOrders = []; 
+        let pendingConfirmCallback = null; 
+        let isAdmin = false; // NEW: Track admin status
+        let isAuthReady = false; // NEW: Track if auth state has been determined
+        
+        // NEW: Analytics state
+        let earningsChart = null; // Holds the Chart.js instance
+        let allDeliveredOrders = []; // Caches orders for date picker (Now holds ALL orders)
+
+        const mainContentContainer = document.getElementById('main-content-container');
+        const userIdDisplay = document.getElementById('user-id-display-header');
+        
+        // --- NEW: Auth State ---
+        const authModal = document.getElementById('authModal');
+        const loginLinkBtn = document.getElementById('login-link-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const authSeparator = document.getElementById('auth-separator');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const authForm = document.getElementById('auth-form');
+        let isLoginMode = true; // State for the auth modal
+        
+        // --- Core Firestore Path ---
+        const PRODUCTS_COLLECTION_PATH = `artifacts/${appId}/public/data/products`; 
+        const BANNERS_COLLECTION_PATH = `artifacts/${appId}/public/data/banners`; 
+        const ORDERS_COLLECTION_PATH = `artifacts/${appId}/public/data/orders`; 
+        // CRITICAL: Path to the admin list collection. Documents use UID as ID.
+        const ADMINS_COLLECTION_PATH = `artifacts/${appId}/public/data/admins`; 
+        // REMOVED: Notifications path
+        
+        const PRODUCT_TAGS = ['featured', 'top-sales', 'most-popular']; 
+        const CURRENCY_SYMBOL = 'PKR '; 
+
+        /**
+         * Clears all active Firestore listeners.
+         */
+        function clearListeners() {
+            activeListeners.forEach(unsubscribe => unsubscribe());
+            activeListeners = [];
+        }
+        
+        // --- NEW: AUTHENTICATION FUNCTIONS ---
+
+        /**
+         * Fetches the user's role from Firestore.
+         * @param {string} uid - The user's Firebase UID.
+         * @returns {boolean} True if the user is listed in the Admins collection.
+         */
+        async function checkAdminRole(uid) {
+            try {
+                // Check if a document with the user's UID exists in the admin collection
+                const adminDocRef = doc(db, ADMINS_COLLECTION_PATH, uid);
+                const docSnap = await getDoc(adminDocRef);
+                return docSnap.exists();
+            } catch (error) {
+                console.error("Error checking admin role in Firestore:", error);
+                // Fail safe: If we can't check, assume they are NOT an admin for security.
+                return false;
+            }
+        }
+        
+        /**
+         * Updates the header UI based on user authentication state.
+         * This now performs a Firestore check for admin role.
+         * @param {object | null} user - The current Firebase user object.
+         */
+        async function updateAuthUI(user) {
+            isAuthReady = true;
+
+            const isLoggedIn = user && user.email;
+            
+            // 1. Determine Admin Status (Asynchronously via Firestore)
+            if (isLoggedIn) {
+                // Fetch and set the global isAdmin state
+                isAdmin = await checkAdminRole(user.uid); 
+            } else {
+                isAdmin = false;
+            }
+
+            // 2. Handle Blocking Non-Admin Users
+            if (isLoggedIn && !isAdmin) {
+                // User is logged in (e.g., a customer) but not authorized as an admin.
+                console.warn(`Access denied for non-admin user: ${user.email}. Logging out.`);
+                await signOut(auth); 
+                // The subsequent onAuthStateChanged event will handle the logged-out state.
+                return; 
+            }
+            
+            // 3. Update UI based on Admin status
+            if (isAdmin) {
+                // User is a valid admin
+                userIdDisplay.textContent = `Admin: ${user.email}`;
+                userIdDisplay.classList.remove('hidden');
+                loginLinkBtn.classList.add('hidden');
+                authSeparator.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+
+                // Hide modal and show content
+                authModal.classList.add('hidden');
+                
+                // Render default view (only if content hasn't been rendered yet)
+                const isContentRendered = mainContentContainer.querySelector('#order-view-template') 
+                                        || mainContentContainer.querySelector('#admin-view-template') 
+                                        || mainContentContainer.querySelector('#banner-view-template')
+                                        || mainContentContainer.querySelector('#analytics-view-template'); // NEW check
+
+                if (!isContentRendered) {
+                    const spinner = document.getElementById('loading-spinner');
+                    if (spinner) spinner.remove();
+                    renderAnalyticsView(); // NEW: Default to Analytics view
+                }
+
+            } else {
+                // Not logged in (or just logged out after being blocked)
+                isAdmin = false;
+                userIdDisplay.textContent = 'Admin: Not Logged In';
+                userIdDisplay.classList.remove('hidden');
+                loginLinkBtn.classList.remove('hidden');
+                authSeparator.classList.remove('hidden');
+                logoutBtn.classList.add('hidden');
+                
+                // Block dashboard access and force login modal
+                clearListeners(); // Stop any data listeners
+                mainContentContainer.innerHTML = '<div class="text-center p-10 text-gray-500 text-lg">Please log in to access the Admin Dashboard.</div>';
+                showAuthModal('login');
+            }
+        }
+        
+        /**
+         * Displays the auth modal and sets the mode (Login/Sign Up).
+         */
+        function showAuthModal(mode = 'login') {
+            const title = document.getElementById('auth-modal-title');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const loginTab = document.getElementById('login-tab');
+            const signupTab = document.getElementById('signup-tab');
+            const errorMsg = document.getElementById('auth-error-message');
+            
+            errorMsg.classList.add('hidden');
+            authForm.reset();
+            
+            isLoginMode = mode === 'login';
+
+            title.textContent = isLoginMode ? 'Admin Login' : 'Admin Sign Up';
+            submitBtn.textContent = isLoginMode ? 'Login' : 'Sign Up';
+
+            // Style active tab
+            loginTab.classList.toggle('border-orange-600', isLoginMode);
+            loginTab.classList.toggle('text-orange-600', isLoginMode);
+            loginTab.classList.toggle('border-gray-200', !isLoginMode);
+            loginTab.classList.toggle('text-gray-500', !isLoginMode);
+
+            signupTab.classList.toggle('border-orange-600', !isLoginMode);
+            signupTab.classList.toggle('text-orange-600', !isLoginMode);
+            signupTab.classList.toggle('border-gray-200', isLoginMode);
+            signupTab.classList.toggle('text-gray-500', isLoginMode);
+
+            authModal.classList.remove('hidden');
+        }
+
+        /**
+         * Handles the login or sign-up form submission.
+         */
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const originalText = submitBtn.textContent;
+            const errorMsg = document.getElementById('auth-error-message');
+
+            errorMsg.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="ph ph-spinner-gap animate-spin mr-2"></i> Processing...';
+            
+            try {
+                let userCredential;
+                if (isLoginMode) {
+                    userCredential = await signInWithEmailAndPassword(auth, email, password);
+                } else {
+                    // Sign up always creates the user, but we will block access later if not approved.
+                    userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    
+                    // NEW: If successfully signed up, immediately check role status.
+                    // If they are not approved (via Firestore doc), they will be logged out by updateAuthUI.
+                }
+
+            } catch (error) {
+                console.error("Auth Error:", error);
+                let message = "An unknown error occurred.";
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    message = "Invalid email or password.";
+                } else if (error.code === 'auth/email-already-in-use') {
+                    message = "Email already registered. Try logging in.";
+                } else if (error.code === 'auth/weak-password') {
+                     message = "Password must be at least 6 characters.";
+                } else if (error.code === 'auth/invalid-email') {
+                     message = "Invalid email format.";
+                }
+                
+                // If sign up failed with a generic error (not the custom pre-approved one)
+                if (!isLoginMode && !error.message.includes('pre-approved')) {
+                     // We add a specific message for security reasons
+                     message += " (Note: New admin sign-ups require pre-approval in Firestore.)";
+                }
+                
+                errorMsg.textContent = message;
+                errorMsg.classList.remove('hidden');
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        });
+
+        /**
+         * Logs the user out.
+         */
+        async function signOutUser() {
+            try {
+                await signOut(auth);
+                // Auth listener (onAuthStateChanged) handles UI update
+                showModal("Logged Out", "You have been successfully logged out.");
+                clearListeners(); // Stop all listeners
+                mainContentContainer.innerHTML = '<div class="text-center p-10 text-gray-500 text-lg">Please log in to access the Admin Dashboard.</div>';
+            } catch (error) {
+                console.error("Logout Error:", error);
+                showModal("Logout Error", "Failed to log out.");
+            }
+        }
+        
+        // --- AUTH EVENT LISTENERS ---
+        document.getElementById('login-tab').addEventListener('click', () => showAuthModal('login'));
+        document.getElementById('signup-tab').addEventListener('click', () => showAuthModal('signup'));
+        loginLinkBtn.addEventListener('click', () => showAuthModal('login'));
+        logoutBtn.addEventListener('click', signOutUser);
+        // --- END AUTHENTICATION FUNCTIONS ---
+
+
+        // --- Navigation ---
+        
+        /**
+         * Sets the active state for the main navigation.
+         */
+        function setActiveNav(navId) {
+            document.getElementById('nav-products').classList.remove('active');
+            document.getElementById('nav-banners').classList.remove('active');
+            document.getElementById('nav-orders').classList.remove('active'); 
+            document.getElementById('nav-analytics').classList.remove('active'); // NEW
+            
+            const activeNav = document.getElementById(navId);
+            if(activeNav) {
+                activeNav.classList.add('active');
+            }
+        }
+
+        // --- NEW: Analytics Functions ---
+
+        /**
+         * Renders the Analytics Dashboard view.
+         */
+        /**
+ * Renders the Analytics Dashboard view.
+ */
+function renderAnalyticsView() {
+    if (!isAdmin) {
+        return;
+    }
+    clearListeners();
+    setActiveNav('nav-analytics');
+
+    const template = document.getElementById('analytics-view-template');
+    const clone = document.importNode(template.content, true);
+    mainContentContainer.innerHTML = '';
+    mainContentContainer.appendChild(clone);
+
+    // Add listener for the date picker
+    document.getElementById('analytics-date-picker').addEventListener('change', (e) => {
+        showStatsForDate(e.target.value);
+    });
+
+    // Set date picker to today by default
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('analytics-date-picker').value = today;
+
+    listenForAnalyticsData(); // This loads your REVENUE
+    fetchSiteTraffic(); // <-- **NEW**: This will load your SITE VISITS
+
+    showStatsForDate(today); // Show today's stats initially
+}
+
+/**
+ * NEW: Fetches site traffic data from our Cloud Function
+ */
+async function fetchSiteTraffic() {
+    // Find the "N/A" text elements in the "Site Traffic" box
+    const siteTrafficBox = document.querySelector("#analytics-view-template .space-y-6 div:nth-child(2)");
+    if (!siteTrafficBox) return;
+
+    const weekEl = siteTrafficBox.querySelector("div:nth-child(1) .text-2xl.font-bold");
+    const monthEl = siteTrafficBox.querySelector("div:nth-child(2) .text-2xl.font-bold");
+
+    if (!weekEl || !monthEl) {
+         console.error("Could not find site traffic elements to update.");
+         return;
+    }
+
+    // Show loading spinners
+    weekEl.innerHTML = '<i class="ph ph-spinner-gap animate-spin"></i>';
+    monthEl.innerHTML = '<i class="ph ph-spinner-gap animate-spin"></i>';
+
+    try {
+        const functions = getFunctions(app);
+        const getSiteTraffic = httpsCallable(functions, 'getSiteTraffic');
+
+        // Call our cloud function
+        const result = await getSiteTraffic();
+
+        // Get the data back from the function
+        const { weekVisits, monthVisits } = result.data;
+
+        // Update the "N/A" text with the real data
+        weekEl.textContent = weekVisits.toLocaleString(); // Format with commas
+        monthEl.textContent = monthVisits.toLocaleString();
+
+    } catch (error) {
+        console.error("Error fetching site traffic:", error);
+        weekEl.textContent = "Error";
+        monthEl.textContent = "Error";
+        // Show the detailed error from the Cloud Function
+        showModal("Analytics Error", `Failed to fetch site traffic: ${error.message}`);
+    }
+}
+
+        /**
+         * Sets up the real-time listener for orders to power the analytics.
+         */
+        function listenForAnalyticsData() {
+            // CRITICAL CHANGE: Listen to ALL orders, not just "Delivered" ones.
+            // This will count revenue as soon as an order is placed.
+            const q = query(collection(db, ORDERS_COLLECTION_PATH));
+
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                // Store all orders for processing
+                allDeliveredOrders = snapshot.docs.map(doc => { // Re-using variable, but it's now ALL orders
+                    const data = doc.data();
+                    return {
+                        ...data,
+                        id: doc.id,
+                        // Ensure orderDate is a JS Date object
+                        orderDate: data.orderDate?.toDate ? data.orderDate.toDate() : new Date(data.orderDate)
+                    };
+                });
+                
+                // Process the data to update the UI
+                processAnalyticsData(allDeliveredOrders);
+                
+                // Re-run the daily stats for the currently selected date
+                const selectedDate = document.getElementById('analytics-date-picker').value;
+                if(selectedDate) {
+                    showStatsForDate(selectedDate);
+                }
+
+            }, (error) => {
+                console.error("Error fetching analytics data:", error);
+                showModal("Analytics Error", "Could not load real-time analytics data.");
+            });
+
+            activeListeners.push(unsubscribe);
+        }
+
+        /**
+         * Processes the array of orders to calculate key metrics.
+         */
+        function processAnalyticsData(deliveredOrders) { // Variable name is kept, but it's all orders
+            const now = new Date();
+            const todayStart = new Date(now.setHours(0, 0, 0, 0));
+            const weekStart = new Date(new Date().setDate(now.getDate() - 7));
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            let totalRevenue = 0;
+            let todayRevenue = 0;
+            let weekRevenue = 0;
+            let monthRevenue = 0;
+            const customerIds = new Set();
+
+            deliveredOrders.forEach(order => {
+                const orderDate = order.orderDate;
+                const orderTotal = order.total || 0;
+
+                totalRevenue += orderTotal;
+                customerIds.add(order.userId);
+
+                if (orderDate >= todayStart) {
+                    todayRevenue += orderTotal;
+                }
+                if (orderDate >= weekStart) {
+                    weekRevenue += orderTotal;
+                }
+                if (orderDate >= monthStart) {
+                    monthRevenue += orderTotal;
+                }
+            });
+
+            const analyticsData = {
+                total: totalRevenue,
+                today: todayRevenue,
+                week: weekRevenue,
+                month: monthRevenue,
+                customers: customerIds.size
+            };
+
+            updateAnalyticsUI(analyticsData);
+        }
+
+        /**
+         * Updates the Analytics UI with processed data.
+         */
+        function updateAnalyticsUI(data) {
+            const formatCurrency = (val) => `${CURRENCY_SYMBOL}${val.toFixed(2)}`;
+            
+            document.getElementById('stats-total-revenue').textContent = formatCurrency(data.total);
+            document.getElementById('stats-today-revenue').textContent = formatCurrency(data.today);
+            document.getElementById('stats-7day-revenue').textContent = formatCurrency(data.week);
+            document.getElementById('stats-month-revenue').textContent = formatCurrency(data.month);
+            document.getElementById('stats-total-customers').textContent = data.customers;
+
+            renderEarningsChart(data);
+        }
+
+        /**
+         * Renders the bar chart for revenue.
+         */
+        function renderEarningsChart(data) {
+            const ctx = document.getElementById('earnings-chart');
+            if (!ctx) return; // Exit if canvas not on page
+
+            // If chart instance exists, destroy it before re-rendering
+            if (earningsChart) {
+                earningsChart.destroy();
+            }
+
+            earningsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Today', 'Last 7 Days', 'This Month'],
+                    datasets: [{
+                        label: `Revenue (${CURRENCY_SYMBOL.trim()})`,
+                        data: [data.today, data.week, data.month],
+                        backgroundColor: [
+                            'rgba(251, 146, 60, 0.6)', // orange-400
+                            'rgba(59, 130, 246, 0.6)', // blue-500
+                            'rgba(22, 163, 74, 0.6)'  // green-600
+                        ],
+                        borderColor: [
+                            'rgba(234, 88, 12, 1)', // orange-600
+                            'rgba(37, 99, 235, 1)',  // blue-700
+                            'rgba(21, 128, 61, 1)' // green-700
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return CURRENCY_SYMBOL + value;
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += CURRENCY_SYMBOL + context.parsed.y.toFixed(2);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        /**
+         * Shows stats for a specific date selected from the date picker.
+         */
+        function showStatsForDate(selectedDateStr) {
+            const container = document.getElementById('daily-stats-container');
+            if (!container || !selectedDateStr) {
+                if (container) container.innerHTML = '<p class="text-sm text-gray-500">Select a date to see details.</p>';
+                return;
+            }
+            
+            // Parse the date string (e.g., "2025-11-07")
+            const parts = selectedDateStr.split('-').map(Number);
+            const selectedDateStart = new Date(parts[0], parts[1] - 1, parts[2]);
+            selectedDateStart.setHours(0, 0, 0, 0);
+            
+            const selectedDateEnd = new Date(selectedDateStart);
+            selectedDateEnd.setHours(23, 59, 59, 999);
+            
+            let dailyRevenue = 0;
+            const dailyCustomerIds = new Set();
+            
+            // Filter the globally stored orders
+            allDeliveredOrders.forEach(order => {
+                if (order.orderDate >= selectedDateStart && order.orderDate <= selectedDateEnd) {
+                    dailyRevenue += order.total;
+                    dailyCustomerIds.add(order.userId);
+                }
+            });
+            
+            container.innerHTML = `
+                <div class="space-y-2">
+                    <div>
+                        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</h4>
+                        <p class="text-xl font-bold text-gray-900">${CURRENCY_SYMBOL}${dailyRevenue.toFixed(2)}</p>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider">New Customers</h4>
+                        <p class="text-xl font-bold text-gray-900">${dailyCustomerIds.size}</p>
+                    </div>
+                </div>
+            `;
+        }
+        // --- END Analytics Functions ---
+
+        // --- Order Management Functions ---
+
+        /**
+         * Renders the Admin Dashboard view for Orders.
+         */
+        function renderOrderView() {
+            // NEW: Check if the user is a confirmed admin
+            if (!isAdmin) {
+                mainContentContainer.innerHTML = '<div class="text-center p-10 text-red-500 text-lg">Access Denied: Only authenticated administrators can view this page.</div>';
+                return;
+            }
+            clearListeners();
+            setActiveNav('nav-orders');
+
+            const template = document.getElementById('order-view-template');
+            const clone = document.importNode(template.content, true);
+            mainContentContainer.innerHTML = '';
+            mainContentContainer.appendChild(clone);
+            
+            fetchAllOrdersForAdmin();
+        }
+
+        /**
+         * Fetches all orders and sets up a listener for the admin table.
+         */
+        function fetchAllOrdersForAdmin() {
+            const adminListBody = document.getElementById('admin-order-list');
+            const adminLoadingRow = document.getElementById('admin-loading-row-orders');
+            const adminNoOrders = document.getElementById('admin-no-orders');
+
+            if (adminLoadingRow) adminLoadingRow.style.display = 'table-row';
+            if (adminNoOrders) adminNoOrders.classList.add('hidden');
+            
+            // This listener fetches ALL orders for the "Orders" page. This is correct.
+            const q = query(collection(db, ORDERS_COLLECTION_PATH));
+
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                allOrders.sort((a, b) => (b.orderDate?.toDate() || 0) - (a.orderDate?.toDate() || 0));
+                
+                renderAdminOrderTable(allOrders, adminListBody, adminLoadingRow, adminNoOrders);
+            }, (error) => {
+                console.error("Error fetching all orders for admin:", error);
+                if (adminLoadingRow) adminLoadingRow.style.display = 'none';
+                if (adminNoOrders) {
+                    adminNoOrders.textContent = "Error loading orders. Check console for details.";
+                    adminNoOrders.classList.remove('hidden');
+                }
+            });
+
+            activeListeners.push(unsubscribe); 
+        }
+
+        /**
+         * Renders the order data into the admin table.
+         */
+        function renderAdminOrderTable(orders, tableBody, loadingRow, noOrdersMsg) {
+            if (!tableBody) return; 
+            tableBody.innerHTML = ''; 
+            if (loadingRow) loadingRow.style.display = 'none';
+
+            if (orders.length === 0) {
+                if (noOrdersMsg) noOrdersMsg.classList.remove('hidden');
+                return;
+            } else {
+                if (noOrdersMsg) noOrdersMsg.classList.add('hidden');
+            }
+
+            orders.forEach(order => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100 transition-colors';
+                
+                const orderDate = order.orderDate?.toDate ? order.orderDate.toDate() : new Date(order.orderDate);
+                // REMOVED: const statusClass = getStatusClass(order.status);
+                
+                row.innerHTML = `
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700 font-mono" title="${order.id}">
+                        ${order.id.substring(0, 8)}...
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        <div class="font-medium text-gray-900">${order.shipping?.firstName || ''} ${order.shipping?.lastName || ''}</div>
+                        <div class="text-xs text-gray-500">${order.contact || 'N/A'}</div>
+                        <div class="text-xs text-gray-500">${order.shipping?.phone || 'N/A'}</div>
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                        ${CURRENCY_SYMBOL}${(order.total || 0).toFixed(2)}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700 capitalize">
+                        ${order.paymentMethod || 'N/A'}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        ${orderDate.toLocaleString()}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-id="${order.id}" class="view-order-btn text-orange-600 hover:text-orange-900">View</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            tableBody.querySelectorAll('.view-order-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const orderId = e.currentTarget.getAttribute('data-id');
+                    const orderToView = allOrders.find(o => o.id === orderId);
+                    if (orderToView) showOrderDetailModal(orderToView);
+                });
+            });
+        }
+        
+        // REMOVED: getStatusClass function was here
+
+        /**
+         * Shows the modal with detailed order information.
+         */
+        async function showOrderDetailModal(order) {
+            const modal = document.getElementById('orderDetailModal');
+            const contentEl = document.getElementById('order-detail-content');
+
+            // Build HTML for items
+            let itemsHtml = order.items.map(item => `
+                <div class="flex items-center space-x-3 p-2 bg-gray-50 rounded-lg">
+                    <img src="${item.image || 'https-placehold.co/40x40'}" class="h-12 w-12 rounded-md object-cover border" alt="${item.name}">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-800">${item.name}</p>
+                        <p class="text-xs text-gray-600">Qty: ${item.quantity} @ ${CURRENCY_SYMBOL}${item.price.toFixed(2)}</p>
+                    </div>
+                    <p class="text-sm font-bold text-gray-800">${CURRENCY_SYMBOL}${(item.quantity * item.price).toFixed(2)}</p>
+                </div>
+            `).join('');
+
+            let paymentProofHtml = `
+                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment</h4>
+                <p class="text-base text-gray-800 capitalize">${order.paymentMethod}</p>
+                <p class="text-sm text-gray-600 mt-1">
+                    Please check WhatsApp for the payment screenshot.
+                </p>
+                <a href="https://wa.me/923430821414" target="_blank" class="text-sm text-green-600 hover:text-green-700 font-medium flex items-center mt-1">
+                    <i class="ph ph-whatsapp-logo text-lg mr-1"></i> Open WhatsApp Chat
+                </a>
+            `;
+
+            contentEl.innerHTML = `
+                <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+                    <div>
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</h4>
+                        <p class="text-base text-gray-800">${order.shipping.firstName} ${order.shipping.lastName}</p>
+                        <p class="text-sm text-gray-600">${order.contact}</p>
+                        <p class="text-sm text-gray-600">${order.shipping.phone}</p>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Shipping Address</h4>
+                        <p class="text-sm text-gray-800">${order.shipping.address}</p>
+                        <p class="text-sm text-gray-800">${order.shipping.apartment || ''}</p>
+                        <p class="text-sm text-gray-800">${order.shipping.city}, ${order.shipping.postalCode}</p>
+                        <p class="text-sm text-gray-800">${order.shipping.country}</p>
+                    </div>
+                    
+                    <div>
+                        ${paymentProofHtml}
+                    </div>
+
+                     <div>
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</h4>
+                        <p class="text-2xl font-bold text-orange-600">${CURRENCY_SYMBOL}${order.total.toFixed(2)}</p>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-1">Items</h4>
+                    <div class="space-y-2 max-h-48 overflow-y-auto border p-2 rounded-lg">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+        }
+
+        // REMOVED: updateOrderStatus function
+        
+        // --- END Order Functions ---
+
+        // --- Admin Dashboard Functions (Products) ---
+        
+        /**
+         * Renders the Admin Dashboard view for Products.
+         */
+        function renderAdminView() {
+            if (!isAdmin) {
+                // If not ready or not an admin, the updateAuthUI handled blocking access.
+                return;
+            }
+            clearListeners();
+            setActiveNav('nav-products'); 
+
+            const template = document.getElementById('admin-view-template');
+            if (!template) {
+                console.error("Admin view template not found");
+                return;
+            }
+            const clone = document.importNode(template.content, true);
+            mainContentContainer.innerHTML = '';
+            mainContentContainer.appendChild(clone);
+            
+            document.getElementById('add-new-product-btn').addEventListener('click', () => showProductModal());
+
+            fetchAllProductsForAdmin();
+        }
+
+        /**
+         * Fetches all products and sets up a listener for the admin table.
+         */
+        function fetchAllProductsForAdmin() {
+            const adminListBody = document.getElementById('admin-product-list');
+            const adminLoadingRow = document.getElementById('admin-loading-row');
+            const adminNoProducts = document.getElementById('admin-no-products');
+
+            if (adminLoadingRow) adminLoadingRow.style.display = 'table-row';
+            if (adminNoProducts) adminNoProducts.classList.add('hidden');
+
+            const q = query(collection(db, PRODUCTS_COLLECTION_PATH));
+
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                allProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderAdminTable(allProducts, adminListBody, adminLoadingRow, adminNoProducts);
+            }, (error) => {
+                console.error("Error fetching all products for admin:", error);
+                if (adminLoadingRow) adminLoadingRow.style.display = 'none';
+                if (adminNoProducts) {
+                    adminNoProducts.textContent = "Error loading products. Check console for details.";
+                    adminNoProducts.classList.remove('hidden');
+                }
+            });
+
+            activeListeners.push(unsubscribe); // Store listener
+        }
+
+        /**
+         * Renders the product data into the admin table.
+         */
+        function renderAdminTable(products, tableBody, loadingRow, noProductsMsg) {
+            if (!tableBody) return; // Guard clause if view changed quickly
+            tableBody.innerHTML = ''; // Clear previous rows
+            if (loadingRow) loadingRow.style.display = 'none';
+
+            if (products.length === 0) {
+                if (noProductsMsg) noProductsMsg.classList.remove('hidden');
+                return;
+            } else {
+                if (noProductsMsg) noProductsMsg.classList.add('hidden');
+            }
+
+            products.forEach(product => {
+                const productTags = Array.isArray(product.tag) ? product.tag : [];
+                const isFeatured = productTags.includes('featured');
+                const isTopSales = productTags.includes('top-sales');
+                const isMostPopular = productTags.includes('most-popular');
+
+                const originalPrice = (product.price || 0).toFixed(2);
+                const discountPrice = (product.discountPrice > 0 ? product.discountPrice : null);
+                const saleEndTime = product.saleEndTime ? (product.saleEndTime.toDate ? product.saleEndTime.toDate() : new Date(product.saleEndTime)) : null;
+                const isSaleActive = saleEndTime && saleEndTime.getTime() > new Date().getTime();
+
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100 transition-colors';
+                
+                let priceDisplay;
+                if (discountPrice) {
+                    priceDisplay = `
+                        <div class="flex flex-col items-start">
+                            <span class="original-price">${CURRENCY_SYMBOL}${originalPrice}</span>
+                            <span class="discount-price">${CURRENCY_SYMBOL}${discountPrice.toFixed(2)}</span>
+                            ${isSaleActive ? `<span class="text-xs text-blue-600 font-medium mt-1"><i class="ph ph-clock-countdown align-middle"></i> Sale Active</span>` : ''}
+                        </div>
+                    `;
+                } else {
+                    priceDisplay = `${CURRENCY_SYMBOL}${originalPrice}`;
+                }
+
+                let imagesHtml = '';
+                const images = [product.image, product.image2, product.image3, product.image4, product.image5];
+                let validImageCount = 0;
+                
+                images.forEach((imgSrc, index) => {
+                    if (imgSrc) {
+                        imagesHtml += `<img class="h-10 w-10 rounded-lg object-cover mr-2 flex-shrink-0" src="${imgSrc}" alt="${product.name} image ${index + 1}" onerror="this.onerror=null;this.src='https://placehold.co/40x40/e2e8f0/9ca3af?text=IMG';">`;
+                        validImageCount++;
+                    }
+                });
+                
+                if (validImageCount === 0) {
+                     imagesHtml = `<img class="h-10 w-10 rounded-lg object-cover mr-2 flex-shrink-0" src="https://placehold.co/40x40/e2e8f0/9ca3af?text=IMG" alt="No image">`;
+                }
+
+                row.innerHTML = `
+                    <td class="px-3 py-3 whitespace-nowrap">
+                        <div class="flex items-center">
+                            ${imagesHtml}
+                        </div>
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900 truncate max-w-xs" title="${product.name}">
+                            ${product.name}
+                        </div>
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                        ${priceDisplay}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        ${product.stock || 0}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        ${product.details?.specs?.brand || 'N/A'}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        ${product.details?.specs?.warranty || 'N/A'}
+                    </td>
+                    ${renderTagStatusCell(isFeatured)}
+                    ${renderTagStatusCell(isTopSales)}
+                    ${renderTagStatusCell(isMostPopular)}
+                    <td class="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-id="${product.id}" class="edit-btn text-orange-600 hover:text-orange-900 mr-3">Edit</button>
+                        <button data-id="${product.id}" class="delete-btn text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Attach listeners to newly created buttons
+            tableBody.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const productId = e.currentTarget.getAttribute('data-id');
+                    const productToEdit = allProducts.find(p => p.id === productId);
+                    if (productToEdit) showProductModal(productToEdit);
+                });
+            });
+
+            tableBody.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const productId = e.currentTarget.getAttribute('data-id');
+                    showModal("Confirm Deletion", `Are you sure you want to delete the product: ${allProducts.find(p => p.id === productId)?.name}? This action cannot be undone.`, () => deleteProduct(productId));
+                });
+            });
+        }
+        
+        /**
+         * Helper function to render tag status cell.
+         */
+        function renderTagStatusCell(isActive) {
+            const color = isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            const text = isActive ? 'Yes' : 'No';
+            return `<td class="px-3 py-3 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${color}">
+                    ${text}
+                </span>
+            </td>`;
+        }
+
+
+        // --- Product Modal CRUD Logic ---
+
+        /**
+         * Shows the product modal for adding a new product or editing an existing one.
+         */
+        function showProductModal(product = null) {
+            const modal = document.getElementById('productModal');
+            const form = document.getElementById('product-form');
+            
+            form.reset();
+            document.getElementById('product-id-field').value = '';
+            document.getElementById('productModalTitle').textContent = 'Add New Product';
+            
+            document.getElementById('sale-status-display').classList.add('hidden');
+            document.getElementById('sale-status-display').textContent = '';
+
+            form.querySelectorAll('details').forEach(details => details.open = false);
+
+            if (product) {
+                document.getElementById('productModalTitle').textContent = 'Edit Product';
+                document.getElementById('product-id-field').value = product.id;
+                document.getElementById('product-name').value = product.name || '';
+                document.getElementById('product-price').value = product.price || '';
+                document.getElementById('product-discount-price').value = product.discountPrice || ''; 
+                document.getElementById('product-stock').value = product.stock || '';
+                document.getElementById('product-category').value = product.category || '';
+                document.getElementById('product-image').value = product.image || '';
+                document.getElementById('product-image-secondary').value = product.image2 || '';
+                
+                document.getElementById('product-image-third').value = product.image3 || '';
+                document.getElementById('product-image-fourth').value = product.image4 || '';
+                document.getElementById('product-image-fifth').value = product.image5 || '';
+                
+                const saleStatusDisplay = document.getElementById('sale-status-display');
+                const saleDurationInput = document.getElementById('product-sale-duration');
+                
+                saleDurationInput.value = ''; 
+                
+                if (product.saleEndTime) {
+                    const saleEndDate = product.saleEndTime.toDate ? product.saleEndTime.toDate() : new Date(product.saleEndTime);
+                    
+                    if (saleEndDate.getTime() > new Date().getTime()) {
+                        saleStatusDisplay.innerHTML = `
+                            <i class="ph ph-clock-countdown text-lg text-blue-600 mr-1 align-middle"></i>
+                            Sale is active. Ends on: <strong>${saleEndDate.toLocaleString()}</strong>
+                        `;
+                        saleStatusDisplay.classList.remove('hidden', 'bg-red-50', 'border-red-200', 'text-red-700');
+                        saleStatusDisplay.classList.add('bg-blue-50', 'border-blue-200', 'text-gray-700');
+                    } else {
+                        saleStatusDisplay.innerHTML = `
+                            <i class="ph ph-x-circle text-lg text-red-600 mr-1 align-middle"></i>
+                            Previous sale has expired on: <strong>${saleEndDate.toLocaleString()}</strong>
+                        `;
+                        saleStatusDisplay.classList.remove('hidden', 'bg-blue-50', 'border-blue-200', 'text-gray-700');
+                        saleStatusDisplay.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+                    }
+                } else {
+                    saleStatusDisplay.classList.add('hidden');
+                    saleStatusDisplay.textContent = '';
+                }
+
+                const specs = product.details?.specs || {};
+                const processor = specs.processor || {};
+                const memory = specs.memory || {};
+                const graphics = specs.graphics || {};
+                const display = specs.display || {};
+                const features = specs.features || {};
+
+                // General
+                document.getElementById('spec-brand').value = specs.brand || '';
+                document.getElementById('spec-warranty').value = specs.warranty || '';
+                document.getElementById('spec-os').value = specs.os || '';
+                document.getElementById('spec-weight').value = specs.weight || '';
+                document.getElementById('spec-condition').value = specs.condition || '';
+
+                // Processor
+                document.getElementById('spec-generation').value = processor.generation || '';
+                document.getElementById('spec-processor-type').value = processor.type || '';
+                document.getElementById('spec-processor-speed').value = processor.speed || '';
+
+                // Memory & Storage
+                document.getElementById('spec-ram-installed').value = memory.ram || '';
+                document.getElementById('spec-ram-type').value = memory.ramType || '';
+                document.getElementById('spec-hdd').value = memory.hdd || '';
+                document.getElementById('spec-hdd-speed').value = memory.hddSpeed || '';
+                document.getElementById('spec-ssd').value = memory.ssd || '';
+                document.getElementById('spec-drive-type').value = memory.driveType || '';
+                document.getElementById('spec-optical-drive').value = memory.optical || '';
+                document.getElementById('spec-optical-type').value = memory.opticalType || '';
+
+                // Graphics & Display
+                document.getElementById('spec-graphics-series').value = graphics.series || '';
+                document.getElementById('spec-graphics-dedicated').value = graphics.dedicated || '';
+                document.getElementById('spec-graphics-memory').value = graphics.memory || '';
+                document.getElementById('spec-graphics-memory-type').value = graphics.memoryType || '';
+                document.getElementById('spec-graphics-switchable').value = graphics.switchable || '';
+                document.getElementById('spec-graphics-processor').value = graphics.processor || '';
+                document.getElementById('spec-display-backlight').value = display.backlight || '';
+                document.getElementById('spec-display-size').value = display.size || '';
+                document.getElementById('spec-display-surface').value = display.surface || '';
+                document.getElementById('spec-display-resolution').value = display.resolution || '';
+                document.getElementById('spec-display-touch').value = display.touch || '';
+
+                // Features & Connectivity
+                document.getElementById('spec-color').value = features.color || '';
+                document.getElementById('spec-ram-form').value = features.ram || ''; 
+                document.getElementById('spec-fingerprint').value = features.fingerprint || '';
+                document.getElementById('spec-num-keyboard').value = features.numKeyboard || '';
+                document.getElementById('spec-backlit-keyboard').value = features.backlitKeyboard || '';
+                document.getElementById('spec-bluetooth').value = features.bluetooth || '';
+                document.getElementById('spec-lan').value = features.lan || '';
+                document.getElementById('spec-wifi').value = features.wifi || '';
+                
+                const productTags = Array.isArray(product.tag) ? product.tag : [];
+                document.getElementById('tag-featured').checked = productTags.includes('featured');
+                document.getElementById('tag-top-sales').checked = productTags.includes('top-sales');
+                document.getElementById('tag-most-popular').checked = productTags.includes('most-popular');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        /**
+         * Saves or updates a product in Firestore.
+         */
+        document.getElementById('product-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const form = e.target;
+            const productId = document.getElementById('product-id-field').value;
+            const isEditing = !!productId;
+            
+            const selectedTags = Array.from(form.elements.tags)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+
+            const originalPrice = parseFloat(form.elements.price.value);
+            const discountPriceValue = form.elements.discountPrice.value;
+            let discountPrice = discountPriceValue ? parseFloat(discountPriceValue) : null;
+
+            const saleDurationHours = form.elements.saleDuration.value ? parseInt(form.elements.saleDuration.value, 10) : 0;
+            let saleEndTime = null; 
+
+            if (discountPrice && discountPrice >= originalPrice) {
+                 showModal("Price Error", "Discount Price must be less than the Original Price.");
+                 return;
+            }
+
+            if (discountPrice && discountPrice < originalPrice) {
+                if (saleDurationHours > 0) {
+                    const now = new Date();
+                    saleEndTime = new Date(now.getTime() + saleDurationHours * 60 * 60 * 1000);
+                } else {
+                    // Keep discount price if it's set, but don't set a timer
+                    discountPrice = discountPrice; 
+                }
+            } else {
+                // No valid discount, so clear both
+                discountPrice = null;
+                saleEndTime = null;
+            }
+
+            const productData = {
+                name: form.elements.name.value,
+                price: originalPrice,
+                discountPrice: discountPrice,
+                saleEndTime: saleEndTime, 
+                stock: parseInt(form.elements.stock.value, 10),
+                category: form.elements.category.value,
+                image: form.elements.image.value,
+                image2: form.elements.image2.value,
+                image3: form.elements.image3.value,
+                image4: form.elements.image4.value,
+                image5: form.elements.image5.value,
+                tag: selectedTags, 
+                details: {
+                    specs: {
+                        brand: document.getElementById('spec-brand').value,
+                        warranty: document.getElementById('spec-warranty').value,
+                        os: document.getElementById('spec-os').value,
+                        weight: document.getElementById('spec-weight').value,
+                        condition: document.getElementById('spec-condition').value,
+                        processor: {
+                            generation: document.getElementById('spec-generation').value,
+                            type: document.getElementById('spec-processor-type').value,
+                            speed: document.getElementById('spec-processor-speed').value,
+                        },
+                        memory: {
+                            ram: document.getElementById('spec-ram-installed').value,
+                            ramType: document.getElementById('spec-ram-type').value,
+                            hdd: document.getElementById('spec-hdd').value,
+                            hddSpeed: document.getElementById('spec-hdd-speed').value,
+                            ssd: document.getElementById('spec-ssd').value,
+                            driveType: document.getElementById('spec-drive-type').value,
+                            optical: document.getElementById('spec-optical-drive').value,
+                            opticalType: document.getElementById('spec-optical-type').value,
+                        },
+                        graphics: {
+                            series: document.getElementById('spec-graphics-series').value,
+                            dedicated: document.getElementById('spec-graphics-dedicated').value,
+                            memory: document.getElementById('spec-graphics-memory').value,
+                            memoryType: document.getElementById('spec-graphics-memory-type').value,
+                            switchable: document.getElementById('spec-graphics-switchable').value,
+                            processor: document.getElementById('spec-graphics-processor').value,
+                        },
+                        display: {
+                            backlight: document.getElementById('spec-display-backlight').value,
+                            size: document.getElementById('spec-display-size').value,
+                            surface: document.getElementById('spec-display-surface').value,
+                            resolution: document.getElementById('spec-display-resolution').value,
+                            touch: document.getElementById('spec-display-touch').value,
+                        },
+                        features: {
+                            color: document.getElementById('spec-color').value,
+                            ram: document.getElementById('spec-ram-form').value, 
+                            fingerprint: document.getElementById('spec-fingerprint').value,
+                            numKeyboard: document.getElementById('spec-num-keyboard').value,
+                            backlitKeyboard: document.getElementById('spec-backlit-keyboard').value,
+                            bluetooth: document.getElementById('spec-bluetooth').value,
+                            lan: document.getElementById('spec-lan').value,
+                            wifi: document.getElementById('spec-wifi').value,
+                        }
+                    },
+                    availability: form.elements.stock.value > 0 ? 'In Stock' : 'Out of Stock'
+                }
+            };
+            
+            if (!isEditing && (!productData.image || !productData.image2)) {
+                showModal("Missing Image", "Please provide both a Primary and Secondary Image URL for a new product.");
+                return;
+            }
+
+            try {
+                const docRef = isEditing ? doc(db, PRODUCTS_COLLECTION_PATH, productId) : doc(collection(db, PRODUCTS_COLLECTION_PATH));
+                await setDoc(docRef, productData, { merge: true }); 
+
+                document.getElementById('productModal').classList.add('hidden');
+                showModal("Success", `Product successfully ${isEditing ? 'updated' : 'added'}!`);
+            } catch (error) {
+                console.error("Error saving product:", error);
+                showModal("Error", `Failed to save product: ${error.message}`);
+            }
+        });
+
+        /**
+         * Deletes a product from Firestore.
+         */
+        async function deleteProduct(productId) {
+            try {
+                await deleteDoc(doc(db, PRODUCTS_COLLECTION_PATH, productId));
+                showModal("Success", "Product successfully deleted.");
+            } catch (error) {
+                console.error("Error deleting product:", error);
+                showModal("Error", `Failed to delete product: ${error.message}`);
+            }
+        }
+        
+        // --- Banner Management Functions ---
+        
+        /**
+         * Renders the Admin Dashboard view for Banners.
+         */
+        function renderBannerView() {
+            // NEW: Check if the user is a confirmed admin
+            if (!isAdmin) {
+                mainContentContainer.innerHTML = '<div class="text-center p-10 text-red-500 text-lg">Access Denied: Only authenticated administrators can view this page.</div>';
+                return;
+            }
+            clearListeners();
+            setActiveNav('nav-banners');
+
+            const template = document.getElementById('banner-view-template');
+            if (!template) {
+                console.error("Banner view template not found");
+                return;
+            }
+            const clone = document.importNode(template.content, true);
+            mainContentContainer.innerHTML = '';
+            mainContentContainer.appendChild(clone);
+            
+            document.getElementById('add-new-banner-btn').addEventListener('click', () => showBannerModal());
+
+            fetchAllBannersForAdmin();
+        }
+
+        /**
+         * Fetches all banners and sets up a listener for the admin table.
+         */
+        function fetchAllBannersForAdmin() {
+            const adminListBody = document.getElementById('admin-banner-list');
+            const adminLoadingRow = document.getElementById('admin-loading-row-banners');
+            const adminNoBanners = document.getElementById('admin-no-banners');
+
+            if (adminLoadingRow) adminLoadingRow.style.display = 'table-row';
+            if (adminNoBanners) adminNoBanners.classList.add('hidden');
+
+            const q = query(collection(db, BANNERS_COLLECTION_PATH));
+
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                allBanners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                allBanners.sort((a, b) => (a.order || 0) - (b.order || 0));
+                
+                renderBannerTable(allBanners, adminListBody, adminLoadingRow, adminNoBanners);
+            }, (error) => {
+                console.error("Error fetching all banners for admin:", error);
+                if (adminLoadingRow) adminLoadingRow.style.display = 'none';
+                if (adminNoBanners) {
+                    adminNoBanners.textContent = "Error loading banners. Check console for details.";
+                    adminNoBanners.classList.remove('hidden');
+                }
+            });
+
+            activeListeners.push(unsubscribe); // Store listener
+        }
+        
+        /**
+         * Renders the banner data into the admin table.
+         */
+        function renderBannerTable(banners, tableBody, loadingRow, noBannersMsg) {
+            if (!tableBody) return; 
+            tableBody.innerHTML = ''; 
+            if (loadingRow) loadingRow.style.display = 'none';
+
+            if (banners.length === 0) {
+                if (noBannersMsg) noBannersMsg.classList.remove('hidden');
+                return;
+            } else {
+                if (noBannersMsg) noBannersMsg.classList.add('hidden');
+            }
+
+            banners.forEach(banner => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100 transition-colors';
+                
+                row.innerHTML = `
+                    <td class="px-3 py-3 whitespace-nowrap">
+                        <img class="h-10 w-24 rounded-md object-cover" src="${banner.imageUrl || 'https://placehold.co/100x40/e2e8f0/9ca3af?text=IMG'}" alt="${banner.altText}" onerror="this.onerror=null;this.src='https://placehold.co/100x40/e2e8f0/9ca3af?text=IMG';">
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        ${banner.altText || 'N/A'}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        ${banner.linkTag || 'N/A'}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                        ${banner.order || 0}
+                    </td>
+                    <td class="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-id="${banner.id}" class="edit-banner-btn text-orange-600 hover:text-orange-900 mr-3">Edit</button>
+                        <button data-id="${banner.id}" class="delete-banner-btn text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Attach listeners to newly created buttons
+            tableBody.querySelectorAll('.edit-banner-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const bannerId = e.currentTarget.getAttribute('data-id');
+                    const bannerToEdit = allBanners.find(b => b.id === bannerId);
+                    if (bannerToEdit) showBannerModal(bannerToEdit);
+                });
+            });
+
+            tableBody.querySelectorAll('.delete-banner-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const bannerId = e.currentTarget.getAttribute('data-id');
+                    showModal("Confirm Deletion", `Are you sure you want to delete this banner? This action cannot be undone.`, () => deleteBanner(bannerId));
+                });
+            });
+        }
+        
+        /**
+         * Shows the banner modal for adding or editing.
+         */
+        function showBannerModal(banner = null) {
+            const modal = document.getElementById('bannerModal');
+            const form = document.getElementById('banner-form');
+            
+            form.reset();
+            document.getElementById('banner-id-field').value = '';
+            document.getElementById('bannerModalTitle').textContent = 'Add New Banner';
+
+            if (banner) {
+                document.getElementById('bannerModalTitle').textContent = 'Edit Banner';
+                document.getElementById('banner-id-field').value = banner.id;
+                document.getElementById('banner-image-url').value = banner.imageUrl || '';
+                document.getElementById('banner-alt-text').value = banner.altText || '';
+                document.getElementById('banner-link-tag').value = banner.linkTag || '';
+                document.getElementById('banner-order').value = banner.order || 0;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        /**
+         * Saves or updates a banner in Firestore.
+         */
+        document.getElementById('banner-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const bannerId = document.getElementById('banner-id-field').value;
+            const isEditing = !!bannerId;
+
+            const bannerData = {
+                imageUrl: document.getElementById('banner-image-url').value,
+                altText: document.getElementById('banner-alt-text').value,
+                linkTag: document.getElementById('banner-link-tag').value,
+                order: parseInt(document.getElementById('banner-order').value, 10) || 0
+            };
+            
+            if (!bannerData.imageUrl) {
+                showModal("Missing Image URL", "Please provide an Image URL for the banner.");
+                return;
+            }
+
+            try {
+                const docRef = isEditing ? doc(db, BANNERS_COLLECTION_PATH, bannerId) : doc(collection(db, BANNERS_COLLECTION_PATH));
+                await setDoc(docRef, bannerData, { merge: true }); 
+
+                document.getElementById('bannerModal').classList.add('hidden');
+                showModal("Success", `Banner successfully ${isEditing ? 'updated' : 'added'}!`);
+            } catch (error) {
+                console.error("Error saving banner:", error);
+                showModal("Error", `Failed to save banner: ${error.message}`);
+            }
+        });
+        
+        /**
+         * Deletes a banner from Firestore.
+         */
+        async function deleteBanner(bannerId) {
+            try {
+                await deleteDoc(doc(db, BANNERS_COLLECTION_PATH, bannerId));
+                showModal("Success", "Banner successfully deleted.");
+            } catch (error) {
+                console.error("Error deleting banner:", error);
+                showModal("Error", `Failed to delete banner: ${error.message}`);
+            }
+        }
+        
+        // --- END Banner Functions ---
+        
+
+        /**
+         * Shows the custom modal.
+         */
+        function showModal(title, message, onConfirm = null) {
+            const modal = document.getElementById('alertModal');
+            const closeBtn = document.getElementById('modalCloseBtn');
+            
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            
+            const isConfirm = !!onConfirm;
+            closeBtn.textContent = isConfirm ? 'Confirm' : 'OK';
+            closeBtn.classList.toggle('bg-red-600', isConfirm);
+            closeBtn.classList.toggle('hover:bg-red-700', isConfirm);
+            closeBtn.classList.toggle('bg-orange-600', !isConfirm);
+            closeBtn.classList.toggle('hover:bg-orange-700', !isConfirm);
+            
+            pendingConfirmCallback = onConfirm;
+
+            modal.classList.remove('hidden');
+        }
+        
+        // --- Modal Event Listener ---
+        document.getElementById('modalCloseBtn').addEventListener('click', () => {
+            document.getElementById('alertModal').classList.add('hidden');
+            
+            if (pendingConfirmCallback) {
+                pendingConfirmCallback();
+                pendingConfirmCallback = null; 
+            }
+        });
+
+
+        // --- Initialize App and Auth ---
+        
+        /**
+         * Initializes Firebase, authenticates the user, and sets up the initial view.
+         */
+        async function initializeAppAndAuth() {
+            try {
+                // 1. Initialize Firebase
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                storage = getStorage(app); 
+                const functions = getFunctions(app);
+                setLogLevel('debug'); 
+
+                // 2. Initial Auth check (If custom token exists, sign in)
+                // We REMOVED signInAnonymously(). Now it just waits.
+                if (authTokenFromEnv) {
+                    await signInWithCustomToken(auth, authTokenFromEnv);
+                }
+                
+                // Attach main navigation listeners
+                document.getElementById('nav-products').addEventListener('click', renderAdminView);
+                document.getElementById('nav-banners').addEventListener('click', renderBannerView);
+                document.getElementById('nav-orders').addEventListener('click', renderOrderView); 
+                document.getElementById('nav-analytics').addEventListener('click', renderAnalyticsView); // NEW
+
+
+                // 3. Listen for Auth State Changes (Main flow control)
+                onAuthStateChanged(auth, (user) => {
+                    // This function now controls showing/hiding the login modal and content
+                    updateAuthUI(user);
+                    
+                    // Clear the loading spinner immediately after auth state is determined
+                    const spinner = document.getElementById('loading-spinner');
+                    if (spinner) {
+                        // Keep the spinner until updateAuthUI determines if we are an admin and renders content
+                        // spinner.remove(); 
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                showModal("Initialization Error", `Failed to initialize Firebase: ${error.message}`);
+                const spinner = document.getElementById('loading-spinner');
+                if (spinner) spinner.remove();
+                mainContentContainer.innerHTML = `<div class="p-8 text-center text-red-500 text-xl">Initialization Error. See console.</div>`;
+            }
+        }
+        
+        // --- Other Event Listeners ---
+        document.getElementById('product-modal-cancel').addEventListener('click', () => {
+            document.getElementById('productModal').classList.add('hidden');
+        });
+        
+        document.getElementById('banner-modal-cancel').addEventListener('click', () => {
+            document.getElementById('bannerModal').classList.add('hidden');
+        });
+        
+        document.getElementById('order-modal-close').addEventListener('click', () => {
+            document.getElementById('orderDetailModal').classList.add('hidden');
+        });
+        
+        // REMOVED: 'update-status-form' submit listener
+        
+        document.getElementById('logo-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            renderAnalyticsView(); // NEW: Default to analytics view
+        });
+
+        // --- Run the App ---
+        initializeAppAndAuth();
+
+    </script>
+</body>
+</html>
